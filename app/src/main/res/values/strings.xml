@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Battery Insight</string>
+    <string name="start_percentage"> %1$d%%</string>
+    <string name="end_percentage"> %1$d%%</string>
+    <string name="charging_time"> </string>
+    <string name="average_current"> %1$d mA</string>
+    <string name="min_temperature"> %.1f </string>
+    <string name="max_temperature"> %.1f </string>
+
+</resources>

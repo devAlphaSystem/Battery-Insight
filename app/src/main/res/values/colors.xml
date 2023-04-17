@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="primary">#106174</color>
+    <color name="primary_dark">#2f4858</color>
+    <color name="accent">#8952f0</color>
+    <color name="divider">#BDBDBD</color>
+    <color name="primary_text">#212121</color>
+    <color name="secondary_text">#757575</color>
+    <color name="info_text">#455A64</color>
+    <color name="background">#F2F2F2</color>
+    <color name="sec_background">#FFFFFF</color>
+    <color name="green">#4CAF50</color>
+    <color name="red">#F44336</color>
+    <color name="yellow">#FFEB3B</color>
+    <color name="dark_green">#005f64</color>
+    <color name="percentage">#F4F4F4</color>
+
+</resources>
