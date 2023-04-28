@@ -1,4 +1,4 @@
-# Battery Insight App
+# **Battery Insight**
 
 The Battery Insight App is a simple Android application that displays various information about the battery of the device it is running on.
 
@@ -30,7 +30,7 @@ Additional features and configuration options:
 
 ## - Installation
 
-The app can be installed from the Google Play Store.
+The app can be installed in Google's [**Play Store**](https://play.google.com/store/apps/details?id=com.midnightsonne.batteryinsight).
 
 ## - Usage
 
@@ -42,4 +42,4 @@ Contributions to the app are welcome! If you want to contribute, please fork thi
 
 ## - License
 
-This project is licensed under the [**Apache License v2.0**](LICENSE) license
+This project is licensed under the [**GPL v3.0**](LICENSE) license

@@ -34,7 +34,7 @@
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-5590350139580050~1919429550" />
+            android:value="ca-app-pub-5590350139580050~6557281207" />
 
         <service
             android:name=".BatteryService"

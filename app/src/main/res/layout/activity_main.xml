@@ -14,13 +14,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:paddingTop="8dp"
         android:background="@drawable/rounded_corners_bottom"
+        android:fontFamily="@font/dongle_bold"
         android:gravity="center"
+        android:paddingTop="8dp"
         android:text="BATTERY INSIGHT"
         android:textColor="@color/info_text"
         android:textSize="48sp"
-        android:fontFamily="@font/dongle_bold"
         app:layout_constraintBottom_toTopOf="@id/BottomNavigationPane"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -269,7 +269,7 @@
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
             app:adSize="BANNER"
-            app:adUnitId="ca-app-pub-5590350139580050/3231090341" />
+            app:adUnitId="ca-app-pub-5590350139580050/7818677396" />
 
     </RelativeLayout>
 
@@ -368,8 +368,8 @@
                     android:id="@+id/battery_full_capacity"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="4dp"
                     android:layout_gravity="end"
+                    android:layout_marginEnd="4dp"
                     android:text="Unknown"
                     android:textColor="@color/info_text"
                     android:textSize="12sp" />
@@ -493,8 +493,8 @@
                     android:id="@+id/text_battery_charging_watts"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:layout_marginStart="4dp"
+                    android:layout_weight="1"
                     android:text="Wattage:"
                     android:textColor="@color/info_text"
                     android:textSize="12sp" />
@@ -831,8 +831,8 @@
             <RelativeLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="64dp"
-                android:layout_marginEnd="64dp">
+                android:layout_marginStart="36dp"
+                android:layout_marginEnd="36dp">
 
                 <ImageView
                     android:id="@+id/battery_history"
@@ -856,8 +856,8 @@
             <RelativeLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="64dp"
-                android:layout_marginEnd="64dp">
+                android:layout_marginStart="36dp"
+                android:layout_marginEnd="36dp">
 
                 <ImageView
                     android:id="@+id/settings"
