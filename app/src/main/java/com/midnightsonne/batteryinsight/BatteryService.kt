@@ -26,7 +26,11 @@ class BatteryService : Service() {
         applicationContext.getSharedPreferences(MainActivity.PREFERENCES_FILE, Context.MODE_PRIVATE)
     }
 
-    private val updateInterval: Int get() = sharedPreferences.getInt(MainActivity.UPDATE_INTERVAL_KEY, 1000)
+    private val updateInterval: Int
+        get() = sharedPreferences.getInt(
+            MainActivity.UPDATE_INTERVAL_KEY,
+            1000
+        )
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -45,7 +49,8 @@ class BatteryService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val status: Int = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
 
-            val isCharging: Boolean = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            val isCharging: Boolean =
+                status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
             val currentNow: Int? = context?.let { getCurrentNow(it) }
             val correctedCurrentNow = if (currentNow != null) {
@@ -74,7 +79,8 @@ class BatteryService : Service() {
         val currentNow = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
 
         return if (currentNow != 0) {
-            val orderOfMagnitude = kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
+            val orderOfMagnitude =
+                kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
             if (orderOfMagnitude >= 3) {
                 currentNow / 1000
             } else {
@@ -100,7 +106,8 @@ class BatteryService : Service() {
     }
 
     private fun createNotification(correctedCurrentNow: Int): Notification {
-        val channel = NotificationChannel(CHANNEL_ID, "Battery Info", NotificationManager.IMPORTANCE_LOW)
+        val channel =
+            NotificationChannel(CHANNEL_ID, "Battery Info", NotificationManager.IMPORTANCE_LOW)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
 
@@ -115,12 +122,14 @@ class BatteryService : Service() {
     }
 
     private fun isNotificationPermissionGranted(): Boolean {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         return notificationManager.areNotificationsEnabled()
     }
 
     private fun updateNotification(correctedCurrentNow: Int) {
-        val isNotificationEnabled = sharedPreferences.getBoolean(MainActivity.NOTIFICATION_ENABLED_KEY, true)
+        val isNotificationEnabled =
+            sharedPreferences.getBoolean(MainActivity.NOTIFICATION_ENABLED_KEY, true)
         val hasNotificationPermission = isNotificationPermissionGranted()
 
         if (isNotificationEnabled && hasNotificationPermission) {

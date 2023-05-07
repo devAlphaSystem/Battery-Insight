@@ -61,7 +61,8 @@ class BatteryHistoryActivity : AppCompatActivity() {
     @SuppressLint("StringFormatMatches", "SetTextI18n")
     private fun addChargeInfoView(chargeInfo: ChargeInfo) {
         val inflater = LayoutInflater.from(this)
-        val chargeInfoView = inflater.inflate(R.layout.item_charge_info, batteryHistoryContainer, false)
+        val chargeInfoView =
+            inflater.inflate(R.layout.item_charge_info, batteryHistoryContainer, false)
 
         val startPercentageView = chargeInfoView.findViewById<TextView>(R.id.start_percentage)
         val endPercentageView = chargeInfoView.findViewById<TextView>(R.id.end_percentage)
@@ -72,10 +73,17 @@ class BatteryHistoryActivity : AppCompatActivity() {
 
         startPercentageView.text = getString(R.string.start_percentage, chargeInfo.startPercentage)
         endPercentageView.text = getString(R.string.end_percentage, chargeInfo.endPercentage)
-        chargingTimeView.text = getString(R.string.charging_time) + " " + formatChargingTime(chargeInfo.chargingTimeMillis)
+        chargingTimeView.text =
+            getString(R.string.charging_time) + " " + formatChargingTime(chargeInfo.chargingTimeMillis)
         averageCurrentView.text = getString(R.string.average_current, chargeInfo.averageCurrent)
-        minTemperatureView.text = getString(R.string.min_temperature, chargeInfo.minTemperature) + chargeInfo.temperatureUnit
-        maxTemperatureView.text = getString(R.string.max_temperature, chargeInfo.maxTemperature) + chargeInfo.temperatureUnit
+        minTemperatureView.text = getString(
+            R.string.min_temperature,
+            chargeInfo.minTemperature
+        ) + chargeInfo.temperatureUnit
+        maxTemperatureView.text = getString(
+            R.string.max_temperature,
+            chargeInfo.maxTemperature
+        ) + chargeInfo.temperatureUnit
 
         batteryHistoryContainer.addView(chargeInfoView)
     }

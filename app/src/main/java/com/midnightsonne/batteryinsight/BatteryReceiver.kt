@@ -58,8 +58,12 @@ class BatteryReceiver(private val context: Context) : BroadcastReceiver() {
                 if (isCharging) {
                     handler.removeCallbacks(currentUpdateRunnable)
 
-                    val sharedPreferences = context.getSharedPreferences(MainActivity.PREFERENCES_FILE, Context.MODE_PRIVATE)
-                    val isEnabled2 = sharedPreferences.getBoolean(MainActivity.TEMPERATURE_UNIT, false)
+                    val sharedPreferences = context.getSharedPreferences(
+                        MainActivity.PREFERENCES_FILE,
+                        Context.MODE_PRIVATE
+                    )
+                    val isEnabled2 =
+                        sharedPreferences.getBoolean(MainActivity.TEMPERATURE_UNIT, false)
                     val currentTemperatureUnit = if (isEnabled2) "°C" else "°F"
                     val endPercentage = getCurrentBatteryPercentage(context)
                     val endTime = System.currentTimeMillis()
@@ -105,8 +109,10 @@ class BatteryReceiver(private val context: Context) : BroadcastReceiver() {
     }
 
     private fun getCurrentBatteryTemperature(context: Context): Float {
-        val batteryStatus: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val sharedPreferences = context.getSharedPreferences(MainActivity.PREFERENCES_FILE, Context.MODE_PRIVATE)
+        val batteryStatus: Intent? =
+            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val sharedPreferences =
+            context.getSharedPreferences(MainActivity.PREFERENCES_FILE, Context.MODE_PRIVATE)
 
         val rawTemperature = batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
         var temperature = rawTemperature.toFloat() / 10

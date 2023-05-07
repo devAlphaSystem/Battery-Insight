@@ -246,33 +246,6 @@
 
     </ScrollView>
 
-    <RelativeLayout
-        android:id="@+id/adView1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/rounded_corners"
-        app:layout_constraintBottom_toTopOf="@id/BottomNavigationPane"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/PhoneInfo1"
-        app:layout_constraintVertical_bias="0.0">
-
-        <com.google.android.gms.ads.AdView
-            android:id="@+id/adView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            app:adSize="BANNER"
-            app:adUnitId="ca-app-pub-5590350139580050/7818677396" />
-
-    </RelativeLayout>
-
     <ScrollView
         android:id="@+id/PhoneStatus1"
         android:layout_width="0dp"
@@ -282,7 +255,7 @@
         app:layout_constraintBottom_toTopOf="@+id/BottomNavigationPane"
         app:layout_constraintEnd_toStartOf="@+id/PhoneStatus2"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/adView1"
+        app:layout_constraintTop_toBottomOf="@+id/PhoneInfo1"
         app:layout_constraintVertical_bias="0.0">
 
         <LinearLayout
@@ -442,7 +415,7 @@
         app:layout_constraintBottom_toTopOf="@+id/BottomNavigationPane"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/PhoneStatus1"
-        app:layout_constraintTop_toBottomOf="@+id/adView1"
+        app:layout_constraintTop_toBottomOf="@+id/PhoneInfo2"
         app:layout_constraintVertical_bias="0.0">
 
         <LinearLayout

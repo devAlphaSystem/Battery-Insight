@@ -25,12 +25,12 @@
         android:id="@+id/empty_history_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
         android:layout_centerInParent="true"
+        android:layout_margin="16dp"
+        android:alpha="0.8"
+        android:padding="16dp"
         android:text="History will be populated as you charge your battery.\n\nPlease keep the app open for accurate history tracking."
         android:textSize="18sp"
-        android:textStyle="bold"
-        android:alpha="0.8"
-        android:padding="16dp" />
+        android:textStyle="bold" />
 
 </RelativeLayout>

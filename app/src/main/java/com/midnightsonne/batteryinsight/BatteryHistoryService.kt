@@ -3,7 +3,11 @@ package com.midnightsonne.batteryinsight
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.*
+import android.os.BatteryManager
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.os.SystemClock
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.File
 
@@ -18,7 +22,10 @@ class BatteryHistoryService : Service() {
         override fun run() {
             saveBatteryHistory()
             lastUpdateTime = SystemClock.elapsedRealtime()
-            handler.postDelayed(this, lastUpdateTime + updateInterval - SystemClock.elapsedRealtime())
+            handler.postDelayed(
+                this,
+                lastUpdateTime + updateInterval - SystemClock.elapsedRealtime()
+            )
         }
     }
 
@@ -61,7 +68,8 @@ class BatteryHistoryService : Service() {
         }
 
         return if (currentNow != null && currentNow != 0) {
-            val orderOfMagnitude = kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
+            val orderOfMagnitude =
+                kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
             if (orderOfMagnitude >= 3) {
                 currentNow / 1000
             } else {

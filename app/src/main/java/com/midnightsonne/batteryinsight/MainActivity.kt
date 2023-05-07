@@ -20,9 +20,6 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import com.jaredrummler.android.device.DeviceName
 import com.midnightsonne.batteryinsight.databinding.ActivityMainBinding
 import java.io.File
@@ -39,7 +36,6 @@ class MainActivity : AppCompatActivity() {
         const val HISTORY_ENABLED_KEY = "history_enabled"
     }
 
-    private lateinit var adView: AdView
     private lateinit var binding: ActivityMainBinding
     private lateinit var batteryReceiver: BatteryReceiver
     private val handler = Handler(Looper.getMainLooper())
@@ -70,12 +66,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        MobileAds.initialize(this) {}
-
-        adView = findViewById(R.id.adView)
-        val adRequest = AdRequest.Builder().build()
-        adView.loadAd(adRequest)
 
         val batteryServiceIntent = Intent(this, BatteryService::class.java)
 
