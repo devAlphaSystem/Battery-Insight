@@ -33,11 +33,9 @@ class MainActivity : AppCompatActivity() {
         const val NOTIFICATION_ENABLED_KEY = "notification_enabled"
         const val TEMPERATURE_UNIT = "temperature_unit"
         const val POWER_KEY = "power"
-        const val HISTORY_ENABLED_KEY = "history_enabled"
     }
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var batteryReceiver: BatteryReceiver
     private val handler = Handler(Looper.getMainLooper())
     private var isReceiverRegistered = false
 
@@ -75,28 +73,11 @@ class MainActivity : AppCompatActivity() {
             startService(batteryServiceIntent)
         }
 
-        val batteryHistoryServiceIntent = Intent(this, BatteryHistoryService::class.java)
-        startService(batteryHistoryServiceIntent)
-
-        val sharedPreferences = getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
-
-        binding.batteryHistory.setOnClickListener {
-            val historyEnabled = sharedPreferences.getBoolean(HISTORY_ENABLED_KEY, false)
-            if (historyEnabled) {
-                val historyActivityIntent = Intent(this, BatteryHistoryActivity::class.java)
-                startActivity(historyActivityIntent)
-            } else {
-                Toast.makeText(this, "History disabled", Toast.LENGTH_SHORT).show()
-            }
-        }
-
         val settingsImageView: ImageView = findViewById(R.id.settings)
         settingsImageView.setOnClickListener { showSettingsDialog() }
 
         registerReceiver(batteryInfoReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         isReceiverRegistered = true
-
-        batteryReceiver = BatteryReceiver.createAndRegister(this)
     }
 
     private val batteryInfoReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -340,16 +321,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val toggleHistorySwitch: Switch = dialog.findViewById(R.id.enable_history)
-        val isEnabled3 = sharedPreferences.getBoolean(HISTORY_ENABLED_KEY, false)
-        toggleHistorySwitch.isChecked = isEnabled3
-
-        toggleHistorySwitch.setOnCheckedChangeListener { _, isChecked ->
-            val editor = sharedPreferences.edit()
-            editor.putBoolean(HISTORY_ENABLED_KEY, isChecked)
-            editor.apply()
-        }
-
         val powerSeekBar: SeekBar = dialog.findViewById(R.id.voltage_seek_bar)
         val powerTextView: TextView = dialog.findViewById(R.id.voltage_text_view)
 
@@ -555,7 +526,5 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(batteryInfoReceiver)
             isReceiverRegistered = false
         }
-
-        unregisterReceiver(batteryReceiver)
     }
 }

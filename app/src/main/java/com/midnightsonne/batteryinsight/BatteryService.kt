@@ -19,7 +19,6 @@ class BatteryService : Service() {
     companion object {
         private const val CHANNEL_ID = "battery_info_channel"
         private const val NOTIFICATION_ID = 1
-        private const val BATTERY_HISTORY_FILENAME = "battery_history.txt"
     }
 
     private val sharedPreferences by lazy {
@@ -39,7 +38,6 @@ class BatteryService : Service() {
             val currentNow = getCurrentNow(applicationContext) ?: 0
 
             updateNotification(currentNow)
-            saveBatteryInfo(currentNow)
 
             handler.postDelayed(this, updateInterval.toLong())
         }
@@ -65,7 +63,6 @@ class BatteryService : Service() {
 
             if (correctedCurrentNow != null) {
                 updateNotification(correctedCurrentNow)
-                saveBatteryInfo(correctedCurrentNow)
             }
         }
     }
@@ -143,23 +140,6 @@ class BatteryService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
-    }
-
-    private fun saveBatteryInfo(currentNow: Int) {
-        val batteryHistoryFile = File(filesDir, BATTERY_HISTORY_FILENAME)
-
-        val historyString = if (batteryHistoryFile.exists()) {
-            batteryHistoryFile.readText()
-        } else {
-            ""
-        }
-
-        val currentTime = System.currentTimeMillis()
-        val newEntry = "$currentTime,$currentNow\n"
-
-        val newHistoryString = historyString + newEntry
-
-        batteryHistoryFile.writeText(newHistoryString)
     }
 
     override fun onDestroy() {
