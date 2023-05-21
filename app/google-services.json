@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "191072809469",
+    "project_id": "batteryinsight-a71c8",
+    "storage_bucket": "batteryinsight-a71c8.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:191072809469:android:25420d51392447987f2994",
+        "android_client_info": {
+          "package_name": "com.midnightsonne.batteryinsight"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "191072809469-1lc8bt1b277dij51so34heod4hu6uda7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6CU1oJD9ftEChwXAgSjW2IAlpLmXo-es"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "191072809469-1lc8bt1b277dij51so34heod4hu6uda7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

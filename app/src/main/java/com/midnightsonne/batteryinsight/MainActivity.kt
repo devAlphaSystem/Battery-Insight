@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -42,21 +43,22 @@ class MainActivity : AppCompatActivity() {
     private var temperature: Double = 0.0
     private var selectedPower = 5
 
-    private val updateBatteryInfoRunnable = object : Runnable {
-        override fun run() {
-            val sharedPreferences = getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
-            val updateInterval = sharedPreferences.getInt(UPDATE_INTERVAL_KEY, 1000)
+    private val updateBatteryInfoRunnable = Runnable {
+        updateBatteryInfo()
+    }
 
-            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-            val batteryStatus = registerReceiver(null, intentFilter)
-            batteryStatus?.let {
-                if (it.action == Intent.ACTION_BATTERY_CHANGED) {
-                    batteryInfoReceiver.onReceive(this@MainActivity, it)
-                }
+    private fun updateBatteryInfo() {
+        val sharedPreferences = getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
+        val updateInterval = sharedPreferences.getInt(UPDATE_INTERVAL_KEY, 1000)
+        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+
+        registerReceiver(null, intentFilter)?.let { batteryStatus ->
+            if (batteryStatus.action == Intent.ACTION_BATTERY_CHANGED) {
+                batteryInfoReceiver.onReceive(this, batteryStatus)
             }
-
-            handler.postDelayed(this, updateInterval.toLong())
         }
+
+        handler.postDelayed(updateBatteryInfoRunnable, updateInterval.toLong())
     }
 
     @SuppressLint("ObsoleteSdkInt")
@@ -66,15 +68,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val batteryServiceIntent = Intent(this, BatteryService::class.java)
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(batteryServiceIntent)
         } else {
             startService(batteryServiceIntent)
         }
 
-        val settingsImageView: ImageView = findViewById(R.id.settings)
-        settingsImageView.setOnClickListener { showSettingsDialog() }
+        findViewById<ImageView>(R.id.settings).apply {
+            setOnClickListener { showSettingsDialog() }
+        }
 
         registerReceiver(batteryInfoReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         isReceiverRegistered = true
@@ -91,150 +93,189 @@ class MainActivity : AppCompatActivity() {
             val batteryPct: Float = level * 100 / scale.toFloat()
 
             val status: Int = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-
-            val isCharging: Boolean =
-                status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-
+            val isCharging: Boolean = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
             val currentNow: Int? = getCurrentNow(context)
-            val correctedCurrentNow = if (currentNow != null) {
-                if (isCharging && currentNow < 0 || !isCharging && currentNow > 0) {
-                    -currentNow
-                } else {
-                    currentNow
-                }
-            } else {
-                null
-            }
-
-            val deviceManufacturer: String = Build.MANUFACTURER
-
-            val androidVersion = Build.VERSION.RELEASE
-
-            val deviceModel = DeviceName.getDeviceName()
-
-            val apiLevel = Build.VERSION.SDK_INT
+            val correctedCurrentNow = correctCurrentNow(currentNow, isCharging)
 
             val health: Int = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)
 
-            val powerSource: String = when (intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)) {
-                BatteryManager.BATTERY_PLUGGED_AC -> "AC Charger"
-                BatteryManager.BATTERY_PLUGGED_USB -> "USB Port"
-                BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless Charger"
-                else -> "Battery"
-            }
-
             val voltage: Int = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
-
-            val currentCapacityMAh = estimateCurrentBatteryCapacity(context, batteryPct)
-
+            val deviceInfo = collectDeviceInfo(intent)
+            val powerSource = getPowerSource(intent)
+            val capacityInfo = collectCapacityInfo(context, batteryPct, intent)
             val fullCapacityMAh = getFullBatteryCapacity(context)
 
-            val technology: String =
-                intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Unknown"
-
             val sharedPreferences = getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
+            temperature = calculateTemperature(intent, sharedPreferences)
+            selectedPower = getSelectedPower(sharedPreferences)
 
-            temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0).toDouble().div(10)
+            updateUI(deviceInfo, powerSource, capacityInfo, isCharging, correctedCurrentNow, batteryPct, setClrPct, setClrRed, temperature, voltage, fullCapacityMAh, health, sharedPreferences)
 
-            val isEnabled2 = sharedPreferences.getBoolean(TEMPERATURE_UNIT, false)
-            temperature = if (isEnabled2) {
-                temperature
+            performAutomaticTests(context)
+        }
+    }
+
+    private fun getCurrentNow(context: Context): Int? {
+        val batteryManager = context.getSystemService(BATTERY_SERVICE) as BatteryManager
+        val currentNow = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+
+        return if (currentNow != 0) {
+            val orderOfMagnitude = kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
+            if (orderOfMagnitude >= 3) {
+                currentNow / 1000
             } else {
-                temperature * 9 / 5 + 32.0
+                currentNow
             }
+        } else {
+            File("/sys/class/power_supply/battery/current_now").readText().trim().toIntOrNull()?.div(1000)
+        }
+    }
 
-            selectedPower =
-                sharedPreferences.getString(POWER_KEY, "5V")?.replace("V", "")?.toInt() ?: 5
-
-            val batteryPercentage = findViewById<TextView>(R.id.battery_percentage)
-            batteryPercentage.setTypeface(null, Typeface.BOLD)
-
-            if (batteryPct < 20) {
-                batteryPercentage.setTextColor(setClrRed)
+    private fun correctCurrentNow(currentNow: Int?, isCharging: Boolean): Int? {
+        return if (currentNow != null) {
+            if (isCharging && currentNow < 0 || !isCharging && currentNow > 0) {
+                -currentNow
             } else {
-                batteryPercentage.setTextColor(setClrPct)
+                currentNow
             }
+        } else {
+            null
+        }
+    }
+
+    private fun collectDeviceInfo(intent: Intent): Map<String, String> {
+        val deviceManufacturer: String = Build.MANUFACTURER
+        val androidVersion = Build.VERSION.RELEASE
+        val deviceModel = DeviceName.getDeviceName()
+        val apiLevel = Build.VERSION.SDK_INT.toString()
+        val technology: String = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Unknown"
+
+        return mapOf(
+            "deviceManufacturer" to deviceManufacturer, "androidVersion" to androidVersion, "deviceModel" to deviceModel, "apiLevel" to apiLevel, "technology" to technology
+        )
+    }
+
+    private fun getPowerSource(intent: Intent): String {
+        return when (intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)) {
+            BatteryManager.BATTERY_PLUGGED_AC -> "AC Charger"
+            BatteryManager.BATTERY_PLUGGED_USB -> "USB Port"
+            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless Charger"
+            else -> "Battery"
+        }
+    }
+
+    private fun collectCapacityInfo(context: Context, batteryPct: Float, intent: Intent): Map<String, Any> {
+        val currentCapacityMAh = estimateCurrentBatteryCapacity(context, batteryPct)
+        val fullCapacityMAh = getFullBatteryCapacity(context)
+        val voltage: Int = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+
+        return mapOf(
+            "currentCapacityMAh" to currentCapacityMAh, "fullCapacityMAh" to fullCapacityMAh, "voltage" to voltage
+        )
+    }
+
+    private fun estimateCurrentBatteryCapacity(context: Context, batteryPercentage: Float): Int {
+        val fullCapacityMAh = getFullBatteryCapacity(context)
+        return (fullCapacityMAh * batteryPercentage / 100f).toInt()
+    }
+
+    @SuppressLint("PrivateApi")
+    private fun getFullBatteryCapacity(context: Context): Int {
+        val powerProfileClass = "com.android.internal.os.PowerProfile"
+        val powerProfileConstructor = Class.forName(powerProfileClass).getConstructor(Context::class.java)
+        val powerProfileInstance = powerProfileConstructor.newInstance(context)
+
+        val getBatteryCapacityMethod = Class.forName(powerProfileClass).getMethod("getBatteryCapacity")
+        val batteryCapacity = getBatteryCapacityMethod.invoke(powerProfileInstance) as Double
+
+        return batteryCapacity.toInt()
+    }
+
+    private fun calculateTemperature(intent: Intent, sharedPreferences: SharedPreferences): Double {
+        temperature = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0).toDouble().div(10)
+
+        val isEnabled2 = sharedPreferences.getBoolean(TEMPERATURE_UNIT, false)
+        return if (isEnabled2) {
+            temperature
+        } else {
+            temperature * 9 / 5 + 32.0
+        }
+    }
+
+    private fun getSelectedPower(sharedPreferences: SharedPreferences): Int {
+        return sharedPreferences.getString(POWER_KEY, "5V")?.replace("V", "")?.toInt() ?: 5
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun updateUI(deviceInfo: Map<String, String>, powerSource: String, capacityInfo: Map<String, Any>, isCharging: Boolean, correctedCurrentNow: Int?, batteryPct: Float, setClrPct: Int, setClrRed: Int, temperature: Double, voltage: Int, fullCapacityMAh: Int, health: Int, sharedPreferences: SharedPreferences) {
+        runOnUiThread {
+            binding.deviceManufacturer.text = deviceInfo["deviceManufacturer"]
+            binding.androidVersion.text = deviceInfo["androidVersion"]
+            binding.deviceModel.text = deviceInfo["deviceModel"]
+            binding.apiLevel.text = deviceInfo["apiLevel"]
+            binding.batteryTechnology.text = deviceInfo["technology"]
+            binding.batteryPowerSource.text = powerSource
+            binding.batteryCurrent.text = correctedCurrentNow?.let { "$it mA" } ?: "Unknown"
+            binding.batteryPercentage.text = "${batteryPct.toInt()}%"
+            binding.batteryVoltage.text = "${capacityInfo["voltage"] as Int / 1000.0} V"
+            binding.batteryCapacity.text = "~ ${capacityInfo["currentCapacityMAh"] as Int} mAh"
+            binding.batteryFullCapacity.text = "${capacityInfo["fullCapacityMAh"] as Int} mAh"
+            binding.batteryHealth.text = getBatteryHealthString(health)
+            binding.batteryTemperature.text = if (sharedPreferences.getBoolean(TEMPERATURE_UNIT, false)) "$temperature °C" else "$temperature °F"
 
             val batteryCurrent = findViewById<TextView>(R.id.battery_current)
             batteryCurrent.setTypeface(null, Typeface.BOLD)
-
             if (isCharging) {
                 batteryCurrent.setTextColor(setClrPct)
             } else {
                 batteryCurrent.setTextColor(setClrRed)
             }
 
-            runOnUiThread {
-                binding.batteryPercentage.text = "${batteryPct.toInt()}%"
-                binding.deviceManufacturer.text = deviceManufacturer
-                binding.androidVersion.text = androidVersion
-                binding.deviceModel.text = deviceModel
-                binding.apiLevel.text = "$apiLevel"
-                binding.batteryHealth.text = getBatteryHealthString(health)
-                binding.batteryChargingWatts.text = if (isCharging) {
-                    val powerInMilliwatts: Double = correctedCurrentNow?.toDouble()?.times(
-                        getPowerInVolts(selectedPower)
-                    ) ?: 0.0
-                    val powerInWatts: Double = powerInMilliwatts / 1000.0
-                    String.format("%.2f", powerInWatts) + " W"
-                } else {
-                    val powerInMilliwatts: Double = correctedCurrentNow?.toDouble()?.times(
-                        voltage / 1000.0
-                    ) ?: 0.0
-                    val powerInWatts: Double = powerInMilliwatts / 1000.0
-                    String.format("%.2f", powerInWatts) + " W"
-                }
-                binding.batteryPowerSource.text = powerSource
-                binding.batteryCurrent.text = correctedCurrentNow?.let { "$it mA" } ?: "Unknown"
-                binding.batteryTimeRemaining.text = if (isCharging) {
-                    calculateBatteryChargingTime(
-                        batteryPct.toInt(),
-                        correctedCurrentNow?.toDouble() ?: 0.0,
-                        fullCapacityMAh
-                    ).let { "${it.first}h ${it.second}m" }
-                } else {
-                    calculateBatteryRemainingTime(
-                        batteryPct.toInt(),
-                        correctedCurrentNow?.toDouble() ?: 0.0,
-                        voltage / 1000.0,
-                        fullCapacityMAh
-                    ).let { "${it.first}h ${it.second}m" }
-                }
-                binding.batteryVoltage.text = "${voltage / 1000.0} V"
-                binding.batteryCapacity.text = "~ $currentCapacityMAh mAh"
-                binding.batteryFullCapacity.text = "$fullCapacityMAh mAh"
-                binding.batteryTemperature.text =
-                    if (isEnabled2) "$temperature °C" else "$temperature °F"
-                binding.batteryTechnology.text = technology
+            val batteryPercentage = findViewById<TextView>(R.id.battery_percentage)
+            batteryPercentage.setTypeface(null, Typeface.BOLD)
+            if (batteryPct < 20) {
+                batteryPercentage.setTextColor(setClrRed)
+            } else {
+                batteryPercentage.setTextColor(setClrPct)
             }
 
-            performAutomaticTests(context)
+            val selectedPower = getSelectedPower(sharedPreferences)
+            binding.batteryChargingWatts.text = if (isCharging) {
+                val powerInMilliwatts: Double = correctedCurrentNow?.toDouble()?.times(
+                    getPowerInVolts(selectedPower)
+                ) ?: 0.0
+                val powerInWatts: Double = powerInMilliwatts / 1000.0
+                String.format("%.2f", powerInWatts) + " W"
+            } else {
+                val powerInMilliwatts: Double = correctedCurrentNow?.toDouble()?.times(
+                    (capacityInfo["voltage"] as Int) / 1000.0
+                ) ?: 0.0
+                val powerInWatts: Double = powerInMilliwatts / 1000.0
+                String.format("%.2f", powerInWatts) + " W"
+            }
+
+            binding.batteryTimeRemaining.text = if (isCharging) {
+                calculateBatteryChargingTime(
+                    batteryPct.toInt(), correctedCurrentNow?.toDouble() ?: 0.0, fullCapacityMAh
+                ).let { "${it.first}h ${it.second}m" }
+            } else {
+                calculateBatteryRemainingTime(
+                    batteryPct.toInt(), correctedCurrentNow?.toDouble() ?: 0.0, voltage / 1000.0, fullCapacityMAh
+                ).let { "${it.first}h ${it.second}m" }
+            }
         }
     }
 
-    fun calculateBatteryRemainingTime(
-        batteryPercentage: Int,
-        batteryCurrent: Double,
-        batteryVoltage: Double,
-        batteryFullCapacity: Int
-    ): Pair<Int, Int> {
-        val remainingCapacity = batteryPercentage / 100.0 * batteryFullCapacity
-        val remainingTime = remainingCapacity / (batteryCurrent * batteryVoltage)
-        val hours = remainingTime.toInt()
-        val minutes = ((remainingTime - hours) * 60).toInt()
-        return Pair((hours * -1), (minutes * -1))
-    }
-
-    fun calculateBatteryChargingTime(
-        batteryPercentage: Int,
-        batteryCurrent: Double,
-        batteryFullCapacity: Int
-    ): Pair<Int, Int> {
-        val remainingCapacity = (1 - batteryPercentage / 100.0) * batteryFullCapacity
-        val chargingTime = remainingCapacity / batteryCurrent
-        val hours = chargingTime.toInt()
-        val minutes = ((chargingTime - hours) * 60).toInt()
-        return Pair(hours, minutes)
+    private fun getBatteryHealthString(health: Int): String {
+        return when (health) {
+            BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheat"
+            BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over Voltage"
+            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Unspecified Failure"
+            BatteryManager.BATTERY_HEALTH_COLD -> "Cold"
+            else -> "Unknown"
+        }
     }
 
     private fun getPowerInVolts(power: Int): Double {
@@ -249,6 +290,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun calculateBatteryRemainingTime(
+        batteryPercentage: Int, batteryCurrent: Double, batteryVoltage: Double, batteryFullCapacity: Int
+    ): Pair<Int, Int> {
+        val remainingCapacity = batteryPercentage / 100.0 * batteryFullCapacity
+        val remainingTime = remainingCapacity / (batteryCurrent * batteryVoltage)
+        val hours = remainingTime.toInt()
+        val minutes = ((remainingTime - hours) * 60).toInt()
+        return Pair((hours * -1), (minutes * -1))
+    }
+
+    private fun calculateBatteryChargingTime(
+        batteryPercentage: Int, batteryCurrent: Double, batteryFullCapacity: Int
+    ): Pair<Int, Int> {
+        val remainingCapacity = (1 - batteryPercentage / 100.0) * batteryFullCapacity
+        val chargingTime = remainingCapacity / batteryCurrent
+        val hours = chargingTime.toInt()
+        val minutes = ((chargingTime - hours) * 60).toInt()
+        return Pair(hours, minutes)
+    }
+
     @SuppressLint("SetTextI18n", "UseSwitchCompatOrMaterialCode")
     private fun showSettingsDialog() {
         val dialog = Dialog(this)
@@ -256,8 +317,7 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(R.layout.dialog_settings)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         )
 
         val updateIntervalText: TextView = dialog.findViewById(R.id.timing_text_view)
@@ -312,8 +372,7 @@ class MainActivity : AppCompatActivity() {
             editor.putBoolean(TEMPERATURE_UNIT, isChecked)
             editor.apply()
 
-            val temperatureCelsius: Int =
-                intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
+            val temperatureCelsius: Int = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10
             temperature = if (isChecked) {
                 temperatureCelsius.toDouble()
             } else {
@@ -368,146 +427,50 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    fun getCurrentNow(context: Context): Int? {
-        val batteryManager = context.getSystemService(BATTERY_SERVICE) as BatteryManager
-        val currentNow = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-
-        return if (currentNow != 0) {
-            val orderOfMagnitude =
-                kotlin.math.floor(kotlin.math.log10(kotlin.math.abs(currentNow.toDouble()))).toInt()
-            if (orderOfMagnitude >= 3) {
-                currentNow / 1000
-            } else {
-                currentNow
-            }
-        } else {
-            val file = File("/sys/class/power_supply/battery/current_now")
-            val currentFromFile = file.readText().trim().toIntOrNull()
-            currentFromFile?.div(1000)
-        }
-    }
-
-    private fun estimateCurrentBatteryCapacity(context: Context, batteryPercentage: Float): Int {
-        val fullCapacityMAh = getFullBatteryCapacity(context)
-        return (fullCapacityMAh * batteryPercentage / 100f).toInt()
-    }
-
-    @SuppressLint("PrivateApi")
-    private fun getFullBatteryCapacity(context: Context): Int {
-        val powerProfileClass = "com.android.internal.os.PowerProfile"
-        val powerProfileConstructor =
-            Class.forName(powerProfileClass).getConstructor(Context::class.java)
-        val powerProfileInstance = powerProfileConstructor.newInstance(context)
-
-        val getBatteryCapacityMethod =
-            Class.forName(powerProfileClass).getMethod("getBatteryCapacity")
-        val batteryCapacity = getBatteryCapacityMethod.invoke(powerProfileInstance) as Double
-
-        return batteryCapacity.toInt()
-    }
-
-    private fun getBatteryHealthString(health: Int): String {
-        return when (health) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheat"
-            BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over Voltage"
-            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Unspecified Failure"
-            BatteryManager.BATTERY_HEALTH_COLD -> "Cold"
-            else -> "Unknown"
-        }
-    }
-
-    private fun isGpsEnabled(context: Context): Boolean {
-        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-    }
-
-    private fun isNfcEnabled(context: Context): Boolean {
-        val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
-        return nfcAdapter?.isEnabled == true
-    }
-
-    private fun getLastRestart(): Boolean {
-        val uptimeMillis = SystemClock.elapsedRealtime()
-        val uptimeHours = TimeUnit.MILLISECONDS.toHours(uptimeMillis)
-        return uptimeHours < 24
-    }
-
-    private fun isUsbDebuggingEnabled(context: Context): Boolean {
-        return Global.getInt(context.contentResolver, Global.ADB_ENABLED, 0) != 0
-    }
-
-    private fun isScreenBrightnessAutomatic(context: Context): Boolean {
-        return Settings.System.getInt(
-            context.contentResolver,
-            Settings.System.SCREEN_BRIGHTNESS_MODE
-        ) == 1
-    }
-
-    private fun isScreenTimeoutGood(context: Context): Boolean {
-        val screenTimeout =
-            Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT)
-        return screenTimeout <= (30 * 1000)
-    }
-
     private fun performAutomaticTests(context: Context) {
-        val gpsGood = !isGpsEnabled(context)
-        val nfcGood = !isNfcEnabled(context)
-        val lastRestartGood = getLastRestart()
-        val usbDebuggingGood = !isUsbDebuggingEnabled(context)
-        val screenBrightnessGood = isScreenBrightnessAutomatic(context)
-        val screenTimeoutGood = isScreenTimeoutGood(context)
+        fun checkCondition(condition: Boolean, textViewId: Int, imageViewId: Int, goodText: String, badText: String) {
+            val textView: TextView = findViewById(textViewId)
+            val imageView: ImageView = findViewById(imageViewId)
 
-        updateUI(
-            gpsGood,
-            nfcGood,
-            lastRestartGood,
-            usbDebuggingGood,
-            screenBrightnessGood,
-            screenTimeoutGood
-        )
-    }
+            textView.text = if (condition) goodText else badText
+            imageView.setImageResource(if (condition) R.drawable.check_good else R.drawable.check_bad)
+        }
 
-    private fun updateUI(
-        gpsGood: Boolean,
-        nfcGood: Boolean,
-        lastRestartGood: Boolean,
-        usbDebuggingGood: Boolean,
-        screenBrightnessGood: Boolean,
-        screenTimeoutGood: Boolean
-    ) {
-        val gpsTextView: TextView = findViewById(R.id.tv_gps)
-        val gpsImageView: ImageView = findViewById(R.id.img_gps)
-        val nfcTextView: TextView = findViewById(R.id.tv_nfc)
-        val nfcImageView: ImageView = findViewById(R.id.img_nfc)
-        val lastRestartTextView: TextView = findViewById(R.id.tv_last_restart)
-        val lastRestartImageView: ImageView = findViewById(R.id.img_last_restart)
-        val usbDebuggingTextView: TextView = findViewById(R.id.tv_usb_debugging)
-        val usbDebuggingImageView: ImageView = findViewById(R.id.img_usb_debugging)
-        val screenBrightnessTextView: TextView = findViewById(R.id.tv_screen_brightness)
-        val screenBrightnessImageView: ImageView = findViewById(R.id.img_screen_brightness)
-        val screenTimeoutTextView: TextView = findViewById(R.id.tv_screen_timeout)
-        val screenTimeoutImageView: ImageView = findViewById(R.id.img_screen_timeout)
+        fun isGpsEnabled(context: Context): Boolean {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        }
 
-        gpsTextView.text = if (gpsGood) "Disabled" else "Enabled"
-        gpsImageView.setImageResource(if (gpsGood) R.drawable.check_good else R.drawable.check_bad)
+        fun isNfcEnabled(context: Context): Boolean {
+            val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
+            return nfcAdapter?.isEnabled == true
+        }
 
-        nfcTextView.text = if (nfcGood) "Disabled" else "Enabled"
-        nfcImageView.setImageResource(if (nfcGood) R.drawable.check_good else R.drawable.check_bad)
+        fun getLastRestart(): Boolean {
+            val uptimeMillis = SystemClock.elapsedRealtime()
+            val uptimeHours = TimeUnit.MILLISECONDS.toHours(uptimeMillis)
+            return uptimeHours < 24
+        }
 
-        lastRestartTextView.text = if (lastRestartGood) "Within 24 hours" else "Over 24 hours ago"
-        lastRestartImageView.setImageResource(if (lastRestartGood) R.drawable.check_good else R.drawable.check_bad)
+        fun isUsbDebuggingEnabled(context: Context): Boolean {
+            return Global.getInt(context.contentResolver, Global.ADB_ENABLED, 0) != 0
+        }
 
-        usbDebuggingTextView.text = if (usbDebuggingGood) "Disabled" else "Enabled"
-        usbDebuggingImageView.setImageResource(if (usbDebuggingGood) R.drawable.check_good else R.drawable.check_bad)
+        fun isScreenBrightnessAutomatic(context: Context): Boolean {
+            return Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE) == 1
+        }
 
-        screenBrightnessTextView.text = if (screenBrightnessGood) "Automatic" else "Not automatic"
-        screenBrightnessImageView.setImageResource(if (screenBrightnessGood) R.drawable.check_good else R.drawable.check_bad)
+        fun isScreenTimeoutGood(context: Context): Boolean {
+            val screenTimeout = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT)
+            return screenTimeout <= (30 * 1000)
+        }
 
-        screenTimeoutTextView.text =
-            if (screenTimeoutGood) "30 seconds or less" else "30 seconds or more"
-        screenTimeoutImageView.setImageResource(if (screenTimeoutGood) R.drawable.check_good else R.drawable.check_bad)
+        checkCondition(!isGpsEnabled(context), R.id.tv_gps, R.id.img_gps, "Disabled", "Enabled")
+        checkCondition(!isNfcEnabled(context), R.id.tv_nfc, R.id.img_nfc, "Disabled", "Enabled")
+        checkCondition(getLastRestart(), R.id.tv_last_restart, R.id.img_last_restart, "Within 24 hours", "Over 24 hours ago")
+        checkCondition(!isUsbDebuggingEnabled(context), R.id.tv_usb_debugging, R.id.img_usb_debugging, "Disabled", "Enabled")
+        checkCondition(isScreenBrightnessAutomatic(context), R.id.tv_screen_brightness, R.id.img_screen_brightness, "Automatic", "Not automatic")
+        checkCondition(isScreenTimeoutGood(context), R.id.tv_screen_timeout, R.id.img_screen_timeout, "30 seconds or less", "30 seconds or more")
     }
 
     override fun onResume() {
