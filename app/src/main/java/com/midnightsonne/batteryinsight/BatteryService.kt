@@ -14,7 +14,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import java.io.File
 
 class BatteryService : Service() {
     companion object {
@@ -72,9 +71,7 @@ class BatteryService : Service() {
                 currentNow
             }
         } else {
-            val file = File("/sys/class/power_supply/battery/current_now")
-            val currentFromFile = file.readText().trim().toIntOrNull()
-            currentFromFile?.div(1000)
+            null
         }
     }
 

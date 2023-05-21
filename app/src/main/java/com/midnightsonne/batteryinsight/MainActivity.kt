@@ -23,7 +23,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.jaredrummler.android.device.DeviceName
 import com.midnightsonne.batteryinsight.databinding.ActivityMainBinding
-import java.io.File
 import java.lang.Math.*
 import java.util.concurrent.TimeUnit
 
@@ -127,7 +126,7 @@ class MainActivity : AppCompatActivity() {
                 currentNow
             }
         } else {
-            File("/sys/class/power_supply/battery/current_now").readText().trim().toIntOrNull()?.div(1000)
+            null
         }
     }
 
